@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Users, DollarSign, ShoppingBag, ArrowUpRight, TrendingUp } from 'lucide-react';
+import { Users, IndianRupee, ShoppingBag, ArrowUpRight, TrendingUp } from 'lucide-react';
 
 const Dashboard = () => {
   const [metrics, setMetrics] = useState({ totalOrders: 0, totalRevenue: 0, totalUsers: 0 });
@@ -70,7 +70,7 @@ const Dashboard = () => {
               <h3 className="text-3xl font-bold text-slate-900">₹{metrics.totalRevenue.toLocaleString()}</h3>
             </div>
             <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-xl">
-              <DollarSign size={24} strokeWidth={2.5} />
+              <IndianRupee size={24} strokeWidth={2.5} />
             </div>
           </div>
           <div className="relative z-10 mt-4 flex items-center text-sm">
