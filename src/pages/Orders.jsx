@@ -69,7 +69,7 @@ const Orders = () => {
                 paginatedOrders.map((order) => (
                   <tr key={order.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">
-                      #{order.id.slice(0,8)}
+                      #{String(order.id).slice(0,8)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-slate-900">{order.customer_name}</div>
