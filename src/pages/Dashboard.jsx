@@ -9,7 +9,7 @@ const Dashboard = () => {
     const fetchDashboard = async () => {
       try {
         const token = localStorage.getItem('adminToken');
-        const res = await fetch('http://localhost:5000/api/admin/dashboard', {
+        const res = await fetch('https://api.bloomingsparrow.com/api/admin/dashboard', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {

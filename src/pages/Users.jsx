@@ -18,7 +18,7 @@ const Users = () => {
     setLoadingOrders(true);
     try {
       const token = localStorage.getItem('adminToken');
-      const res = await fetch(`http://localhost:5000/api/admin/users/${user.id}/orders`, {
+      const res = await fetch(`https://api.bloomingsparrow.com/api/admin/users/${user.id}/orders`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -42,7 +42,7 @@ const Users = () => {
     const fetchUsers = async () => {
       try {
         const token = localStorage.getItem('adminToken');
-        const res = await fetch('http://localhost:5000/api/admin/users', {
+        const res = await fetch('https://api.bloomingsparrow.com/api/admin/users', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -184,7 +184,7 @@ const Users = () => {
                                 {order.items?.map((item, idx) => (
                                   <div key={idx} className="flex justify-between items-center text-sm">
                                     <div className="flex items-center gap-2">
-                                      <img src={`http://localhost:3000/${item.image}`} alt={item.title} className="w-8 h-8 rounded object-cover" />
+                                      <img src={`https://api.bloomingsparrow.com/${item.image}`} alt={item.title} className="w-8 h-8 rounded object-cover" />
                                       <span>{item.title} x {item.quantity}</span>
                                     </div>
                                     <span>₹{item.price}</span>

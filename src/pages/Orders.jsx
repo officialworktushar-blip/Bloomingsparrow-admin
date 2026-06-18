@@ -11,7 +11,7 @@ const Orders = () => {
     const fetchOrders = async () => {
       try {
         const token = localStorage.getItem('adminToken');
-        const res = await fetch('http://localhost:5000/api/admin/orders', {
+        const res = await fetch('https://api.bloomingsparrow.com/api/admin/orders', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {

@@ -20,7 +20,7 @@ const Products = () => {
   const fetchProducts = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const res = await fetch('http://localhost:5000/api/admin/products', {
+      const res = await fetch('https://api.bloomingsparrow.com/api/admin/products', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -70,7 +70,7 @@ const Products = () => {
     
     try {
       const token = localStorage.getItem('adminToken');
-      const res = await fetch('http://localhost:5000/api/admin/upload', {
+      const res = await fetch('https://api.bloomingsparrow.com/api/admin/upload', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: uploadData
@@ -95,8 +95,8 @@ const Products = () => {
     try {
       const token = localStorage.getItem('adminToken');
       const url = isEditing 
-        ? `http://localhost:5000/api/admin/products/${formData.id}`
-        : `http://localhost:5000/api/admin/products`;
+        ? `https://api.bloomingsparrow.com/api/admin/products/${formData.id}`
+        : `https://api.bloomingsparrow.com/api/admin/products`;
       
       const method = isEditing ? 'PUT' : 'POST';
 
@@ -125,7 +125,7 @@ const Products = () => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
         const token = localStorage.getItem('adminToken');
-        const res = await fetch(`http://localhost:5000/api/admin/products/${id}`, {
+        const res = await fetch(`https://api.bloomingsparrow.com/api/admin/products/${id}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -192,7 +192,7 @@ const Products = () => {
                       <div className="flex items-center">
                         <div className="h-10 w-10 flex-shrink-0 bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
                           {product.image ? (
-                            <img src={`http://localhost:3000/${product.image}`} alt={product.title} className="w-full h-full object-cover" />
+                            <img src={`https://api.bloomingsparrow.com/${product.image}`} alt={product.title} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full bg-indigo-50 flex items-center justify-center text-indigo-300 font-bold text-xs">IMG</div>
                           )}
@@ -308,7 +308,7 @@ const Products = () => {
                   </div>
                   {showImagePreview && formData.image && (
                     <div className="mt-3 h-32 w-32 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center animate-in fade-in zoom-in duration-200">
-                      <img src={`http://localhost:3000/${formData.image}`} alt="Preview" className="w-full h-full object-contain" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }} />
+                      <img src={`https://api.bloomingsparrow.com/${formData.image}`} alt="Preview" className="w-full h-full object-contain" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }} />
                       <div className="hidden text-xs text-slate-400">Not Found</div>
                     </div>
                   )}
