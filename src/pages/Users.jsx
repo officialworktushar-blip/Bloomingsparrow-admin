@@ -1,5 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Component } from 'react';
 import Pagination from '../components/Pagination';
+
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null, errorInfo: null }; }
+  componentDidCatch(error, errorInfo) { this.setState({ hasError: true, error, errorInfo }); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 bg-red-50 text-red-700 border border-red-200 rounded-md m-4">
+          <h2 className="font-bold text-lg mb-2">Something went wrong.</h2>
+          <pre className="text-sm whitespace-pre-wrap">{this.state.error?.toString()}</pre>
+          <pre className="text-xs mt-2 overflow-auto max-h-40">{this.state.errorInfo?.componentStack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const Users = () => {
   const [users, setUsers] = useState([]);
@@ -193,72 +210,73 @@ const Users = () => {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={closeModal}></div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
-                      Order History for {selectedUser?.name}
-                    </h3>
-                    <div className="mt-4">
-                      {loadingOrders ? (
-                        <div className="flex justify-center my-8">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                        </div>
-                      ) : userOrders.length === 0 ? (
-                        <p className="text-sm text-gray-500 my-4">This user has not placed any orders yet.</p>
-                      ) : (
-                        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                          {(Array.isArray(userOrders) ? userOrders : []).map((order) => (
-                            <div key={order.id} className="border border-gray-200 rounded-lg p-4">
-                              <div className="flex justify-between border-b pb-2 mb-2">
-                                <div>
-                                  <span className="text-xs text-gray-500 block">Order ID: {order.razorpay_order_id}</span>
-                                  <span className="text-sm">{new Date(order.created_at).toLocaleDateString()}</span>
-                                </div>
-                                <div className="text-right">
-                                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${order.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                    {order.status}
-                                  </span>
-                                  <div className="font-bold mt-1">₹{order.amount}</div>
-                                </div>
-                              </div>
-                              {order.shipping_address && (
-                                <div className="text-sm text-gray-600 mb-3 bg-gray-50 p-2 rounded">
-                                  <strong>Shipping to:</strong> {order.shipping_address.street}, {order.shipping_address.city}, {order.shipping_address.state} - {order.shipping_address.pincode} (Ph: {order.shipping_address.number})
-                                </div>
-                              )}
-                              <div className="space-y-2">
-                                {(Array.isArray(order.items) ? order.items : []).map((item, idx) => (
-                                  <div key={idx} className="flex justify-between items-center text-sm">
-                                    <div className="flex items-center gap-2">
-                                      {item.image && <img src={`${API_URL}/${item.image}`} alt={item.title} className="w-8 h-8 rounded object-cover" />}
-                                      <span>{item.title} x {item.quantity}</span>
-                                    </div>
-                                    <span>₹{item.price}</span>
+        <ErrorBoundary>
+          <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            <div className="flex items-center justify-center min-h-screen p-4 text-center">
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" aria-hidden="true" onClick={closeModal}></div>
+              <div className="relative inline-block w-full max-w-4xl bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all animate-in zoom-in-95 duration-200">
+                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                  <div className="w-full">
+                    <div className="mt-3 text-left w-full">
+                      <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                        Order History for {selectedUser?.name}
+                      </h3>
+                      <div className="mt-4">
+                        {loadingOrders ? (
+                          <div className="flex justify-center my-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                          </div>
+                        ) : userOrders.length === 0 ? (
+                          <p className="text-sm text-gray-500 my-4">This user has not placed any orders yet.</p>
+                        ) : (
+                          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                            {(Array.isArray(userOrders) ? userOrders : []).map((order) => (
+                              <div key={order.id} className="border border-gray-200 rounded-lg p-4">
+                                <div className="flex justify-between border-b pb-2 mb-2">
+                                  <div>
+                                    <span className="text-xs text-gray-500 block">Order ID: {order.razorpay_order_id}</span>
+                                    <span className="text-sm">{new Date(order.created_at).toLocaleDateString()}</span>
                                   </div>
-                                ))}
+                                  <div className="text-right">
+                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${order.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                      {order.status}
+                                    </span>
+                                    <div className="font-bold mt-1">₹{order.amount}</div>
+                                  </div>
+                                </div>
+                                {order.shipping_address && (
+                                  <div className="text-sm text-gray-600 mb-3 bg-gray-50 p-2 rounded">
+                                    <strong>Shipping to:</strong> {order.shipping_address.street}, {order.shipping_address.city}, {order.shipping_address.state} - {order.shipping_address.pincode} (Ph: {order.shipping_address.number})
+                                  </div>
+                                )}
+                                <div className="space-y-2">
+                                  {(Array.isArray(order.items) ? order.items : []).map((item, idx) => (
+                                    <div key={idx} className="flex justify-between items-center text-sm">
+                                      <div className="flex items-center gap-2">
+                                        {item.image && <img src={`${API_URL}/${item.image}`} alt={item.title} className="w-8 h-8 rounded object-cover" />}
+                                        <span>{item.title} x {item.quantity}</span>
+                                      </div>
+                                      <span>₹{item.price}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button type="button" className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" onClick={closeModal}>
-                  Close
-                </button>
+                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                  <button type="button" className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" onClick={closeModal}>
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </ErrorBoundary>
       )}
 
       {isEditModalOpen && (

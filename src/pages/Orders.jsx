@@ -13,6 +13,7 @@ const Orders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDetails, setOrderDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [orderModalMode, setOrderModalMode] = useState('view');
 
   const fetchOrders = async () => {
     try {
@@ -35,8 +36,9 @@ const Orders = () => {
     fetchOrders();
   }, []);
 
-  const handleViewOrder = async (order) => {
+  const handleViewOrder = async (order, mode = 'view') => {
     setSelectedOrder(order);
+    setOrderModalMode(mode);
     setIsModalOpen(true);
     setLoadingDetails(true);
     try {
@@ -57,9 +59,24 @@ const Orders = () => {
     }
   };
 
-  const handleStatusChange = async (e) => {
+  const handleDetailChange = (e) => {
+    const { name, value } = e.target;
+    setOrderDetails(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddressChange = (e) => {
+    const { name, value } = e.target;
+    setOrderDetails(prev => ({
+      ...prev,
+      shipping_address: {
+        ...(prev.shipping_address || {}),
+        [name]: value
+      }
+    }));
+  };
+
+  const saveOrderDetails = async () => {
     if (!selectedOrder) return;
-    const newStatus = e.target.value;
     try {
       const token = localStorage.getItem('adminToken');
       const res = await fetch(`${API_URL}/api/admin/orders/${selectedOrder.id}/status`, {
@@ -68,15 +85,20 @@ const Orders = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` 
         },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ 
+          status: orderDetails.status,
+          shipping_address: orderDetails.shipping_address 
+        })
       });
       if (res.ok) {
-        setOrderDetails(prev => ({ ...prev, status: newStatus }));
-        setOrders((orders || []).map(o => o.id === selectedOrder.id ? { ...o, status: newStatus } : o));
+        setOrders((orders || []).map(o => o.id === selectedOrder.id ? { ...o, status: orderDetails.status } : o));
+        closeModal();
+      } else {
+        alert('Failed to update order details');
       }
     } catch (err) {
       console.error(err);
-      alert('Failed to update status');
+      alert('Error updating order details');
     }
   };
 
@@ -149,12 +171,20 @@ const Orders = () => {
                       {order.created_at ? new Date(order.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                      <button 
-                        onClick={() => handleViewOrder(order)}
-                        className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded-md transition-colors whitespace-nowrap"
-                      >
-                        View / Edit
-                      </button>
+                      <div className="flex justify-center space-x-2">
+                        <button 
+                          onClick={() => handleViewOrder(order, 'view')}
+                          className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded-md transition-colors whitespace-nowrap"
+                        >
+                          View
+                        </button>
+                        <button 
+                          onClick={() => handleViewOrder(order, 'edit')}
+                          className="text-emerald-600 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-md transition-colors whitespace-nowrap"
+                        >
+                          Edit
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -172,13 +202,12 @@ const Orders = () => {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={closeModal}></div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+          <div className="flex items-center justify-center min-h-screen p-4 text-center">
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" aria-hidden="true" onClick={closeModal}></div>
+            <div className="relative inline-block w-full max-w-4xl bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all animate-in zoom-in-95 duration-200">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start w-full">
-                  <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                <div className="w-full">
+                  <div className="mt-3 text-left w-full">
                     <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
                       Order Details: #{String(selectedOrder?.id).slice(0,8)}
                     </h3>
@@ -201,30 +230,66 @@ const Orders = () => {
                             </div>
                             <div>
                               <p className="text-sm font-semibold text-gray-700">Status</p>
-                              <select 
-                                value={orderDetails.status}
-                                onChange={handleStatusChange}
-                                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md border"
-                              >
-                                <option value="pending">Pending</option>
-                                <option value="paid">Paid</option>
-                                <option value="shipped">Shipped</option>
-                                <option value="delivered">Delivered</option>
-                                <option value="cancelled">Cancelled</option>
-                              </select>
+                              {orderModalMode === 'edit' ? (
+                                <select 
+                                  name="status"
+                                  value={orderDetails.status}
+                                  onChange={handleDetailChange}
+                                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md border"
+                                >
+                                  <option value="pending">Pending</option>
+                                  <option value="paid">Paid</option>
+                                  <option value="shipped">Shipped</option>
+                                  <option value="delivered">Delivered</option>
+                                  <option value="cancelled">Cancelled</option>
+                                </select>
+                              ) : (
+                                <span className={`mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
+                                  ${orderDetails.status === 'paid' || orderDetails.status === 'delivered' ? 'bg-emerald-100 text-emerald-800' : 
+                                    orderDetails.status === 'shipped' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
+                                  {(orderDetails.status || '').toUpperCase()}
+                                </span>
+                              )}
                             </div>
                           </div>
 
-                          {orderDetails.shipping_address && (
-                            <div className="border border-gray-200 rounded-lg p-4">
-                              <h4 className="font-semibold text-gray-900 mb-2">Shipping Address</h4>
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <h4 className="font-semibold text-gray-900 mb-2">Shipping Address</h4>
+                            {orderModalMode === 'edit' ? (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700">Street</label>
+                                  <input type="text" name="street" value={orderDetails.shipping_address?.street || ''} onChange={handleAddressChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-1 px-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700">City</label>
+                                  <input type="text" name="city" value={orderDetails.shipping_address?.city || ''} onChange={handleAddressChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-1 px-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700">State</label>
+                                  <input type="text" name="state" value={orderDetails.shipping_address?.state || ''} onChange={handleAddressChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-1 px-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700">Pincode</label>
+                                  <input type="text" name="pincode" value={orderDetails.shipping_address?.pincode || ''} onChange={handleAddressChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-1 px-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+                                </div>
+                                <div className="sm:col-span-2">
+                                  <label className="block text-xs font-medium text-gray-700">Phone Number</label>
+                                  <input type="text" name="number" value={orderDetails.shipping_address?.number || ''} onChange={handleAddressChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-1 px-2 text-sm focus:ring-indigo-500 focus:border-indigo-500" />
+                                </div>
+                              </div>
+                            ) : (
                               <p className="text-sm text-gray-600">
-                                {orderDetails.shipping_address.street}, {orderDetails.shipping_address.city},<br/>
-                                {orderDetails.shipping_address.state} - {orderDetails.shipping_address.pincode}<br/>
-                                Phone: {orderDetails.shipping_address.number}
+                                {orderDetails.shipping_address ? (
+                                  <>
+                                    {orderDetails.shipping_address.street}, {orderDetails.shipping_address.city},<br/>
+                                    {orderDetails.shipping_address.state} - {orderDetails.shipping_address.pincode}<br/>
+                                    Phone: {orderDetails.shipping_address.number}
+                                  </>
+                                ) : 'Not provided'}
                               </p>
-                            </div>
-                          )}
+                            )}
+                          </div>
 
                           <div className="border border-gray-200 rounded-lg overflow-hidden">
                             <h4 className="font-semibold text-gray-900 bg-gray-50 px-4 py-2 border-b">Items</h4>
@@ -259,8 +324,13 @@ const Orders = () => {
                   </div>
                 </div>
               </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button type="button" className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" onClick={closeModal}>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse space-y-2 sm:space-y-0 sm:space-x-2 sm:space-x-reverse">
+                {orderModalMode === 'edit' && (
+                  <button type="button" className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none sm:w-auto sm:text-sm" onClick={saveOrderDetails}>
+                    Save Changes
+                  </button>
+                )}
+                <button type="button" className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:w-auto sm:text-sm" onClick={closeModal}>
                   Close
                 </button>
               </div>
