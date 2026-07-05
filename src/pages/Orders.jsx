@@ -72,7 +72,7 @@ const Orders = () => {
       });
       if (res.ok) {
         setOrderDetails(prev => ({ ...prev, status: newStatus }));
-        setOrders(orders.map(o => o.id === selectedOrder.id ? { ...o, status: newStatus } : o));
+        setOrders((orders || []).map(o => o.id === selectedOrder.id ? { ...o, status: newStatus } : o));
       }
     } catch (err) {
       console.error(err);
@@ -126,7 +126,7 @@ const Orders = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedOrders.map((order) => (
+                (paginatedOrders || []).map((order) => (
                   <tr key={order.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-indigo-600">
                       #{String(order.id).slice(0,8)}
@@ -142,7 +142,7 @@ const Orders = () => {
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
                         ${order.status === 'paid' || order.status === 'delivered' ? 'bg-emerald-100 text-emerald-800' : 
                           order.status === 'shipped' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
-                        {order.status.toUpperCase()}
+                        {(order.status || '').toUpperCase()}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
@@ -229,7 +229,7 @@ const Orders = () => {
                           <div className="border border-gray-200 rounded-lg overflow-hidden">
                             <h4 className="font-semibold text-gray-900 bg-gray-50 px-4 py-2 border-b">Items</h4>
                             <div className="divide-y divide-gray-200">
-                              {orderDetails.items?.map((item, idx) => (
+                              {(Array.isArray(orderDetails.items) ? orderDetails.items : []).map((item, idx) => (
                                 <div key={idx} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4">
                                   <div className="flex items-center gap-4 mb-2 sm:mb-0">
                                     <div className="h-12 w-12 bg-gray-100 rounded overflow-hidden">
