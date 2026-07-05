@@ -7,10 +7,15 @@ const Users = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  const API_URL = import.meta.env.VITE_API_URL || 'https://api.bloomingsparrow.com';
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userOrders, setUserOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
 
   const fetchUserOrders = async (user) => {
     setSelectedUser(user);
@@ -18,7 +23,7 @@ const Users = () => {
     setLoadingOrders(true);
     try {
       const token = localStorage.getItem('adminToken');
-      const res = await fetch(`https://api.bloomingsparrow.com/api/admin/users/${user.id}/orders`, {
+      const res = await fetch(`${API_URL}/api/admin/users/${user.id}/orders`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -38,11 +43,50 @@ const Users = () => {
     setUserOrders([]);
   };
 
+  const handleEditUser = (user) => {
+    setEditingUser({ ...user });
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingUser(null);
+  };
+
+  const handleEditChange = (e) => {
+    setEditingUser({ ...editingUser, [e.target.name]: e.target.value });
+  };
+
+  const saveEditUser = async (e) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_URL}/api/admin/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify(editingUser)
+      });
+      if (res.ok) {
+        setUsers((users || []).map(u => u.id === editingUser.id ? editingUser : u));
+        closeEditModal();
+      } else {
+        alert('Failed to update user');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error updating user');
+    }
+  };
+
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         const token = localStorage.getItem('adminToken');
-        const res = await fetch('https://api.bloomingsparrow.com/api/admin/users', {
+        const res = await fetch(`${API_URL}/api/admin/users`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -98,7 +142,7 @@ const Users = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedUsers.map((user) => (
+                (paginatedUsers || []).map((user) => (
                   <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-500">
                       {user.id}
@@ -119,12 +163,20 @@ const Users = () => {
                       {user.created_at ? new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button 
-                        onClick={() => fetchUserOrders(user)}
-                        className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded-md transition-colors"
-                      >
-                        View Orders
-                      </button>
+                      <div className="flex space-x-2">
+                        <button 
+                          onClick={() => fetchUserOrders(user)}
+                          className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded-md transition-colors"
+                        >
+                          View Orders
+                        </button>
+                        <button 
+                          onClick={() => handleEditUser(user)}
+                          className="text-emerald-600 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-md transition-colors"
+                        >
+                          Edit
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -161,7 +213,7 @@ const Users = () => {
                         <p className="text-sm text-gray-500 my-4">This user has not placed any orders yet.</p>
                       ) : (
                         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                          {userOrders.map((order) => (
+                          {(Array.isArray(userOrders) ? userOrders : []).map((order) => (
                             <div key={order.id} className="border border-gray-200 rounded-lg p-4">
                               <div className="flex justify-between border-b pb-2 mb-2">
                                 <div>
@@ -181,10 +233,10 @@ const Users = () => {
                                 </div>
                               )}
                               <div className="space-y-2">
-                                {order.items?.map((item, idx) => (
+                                {(Array.isArray(order.items) ? order.items : []).map((item, idx) => (
                                   <div key={idx} className="flex justify-between items-center text-sm">
                                     <div className="flex items-center gap-2">
-                                      <img src={`https://api.bloomingsparrow.com/${item.image}`} alt={item.title} className="w-8 h-8 rounded object-cover" />
+                                      {item.image && <img src={`${API_URL}/${item.image}`} alt={item.title} className="w-8 h-8 rounded object-cover" />}
                                       <span>{item.title} x {item.quantity}</span>
                                     </div>
                                     <span>₹{item.price}</span>
@@ -205,6 +257,48 @@ const Users = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+            <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center z-10">
+              <h3 className="text-xl font-bold text-slate-900">Edit User</h3>
+              <button onClick={closeEditModal} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+                ✕
+              </button>
+            </div>
+            
+            <form onSubmit={saveEditUser} className="p-6 space-y-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Name</label>
+                <input required name="name" value={editingUser?.name || ''} onChange={handleEditChange} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+              </div>
+              
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Email</label>
+                <input required type="email" name="email" value={editingUser?.email || ''} onChange={handleEditChange} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-700">Role</label>
+                <select name="role" value={editingUser?.role || ''} onChange={handleEditChange} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              <div className="pt-4 flex justify-end space-x-3 border-t border-slate-100">
+                <button type="button" onClick={closeEditModal} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                  Cancel
+                </button>
+                <button type="submit" className="px-6 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors">
+                  Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

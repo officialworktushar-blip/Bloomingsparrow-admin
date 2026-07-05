@@ -17,10 +17,12 @@ const Products = () => {
     image: '', description: '', material: '', dimensions: '', origin: '', artisan: ''
   });
 
+  const API_URL = import.meta.env.VITE_API_URL || 'https://api.bloomingsparrow.com';
+
   const fetchProducts = async () => {
     try {
       const token = localStorage.getItem('adminToken');
-      const res = await fetch('https://api.bloomingsparrow.com/api/admin/products', {
+      const res = await fetch(`${API_URL}/api/admin/products`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -70,7 +72,7 @@ const Products = () => {
     
     try {
       const token = localStorage.getItem('adminToken');
-      const res = await fetch('https://api.bloomingsparrow.com/api/admin/upload', {
+      const res = await fetch(`${API_URL}/api/admin/upload`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: uploadData
@@ -80,7 +82,8 @@ const Products = () => {
         const data = await res.json();
         setFormData(prev => ({ ...prev, image: data.imageUrl }));
       } else {
-        alert('Image upload failed');
+        const errData = await res.json();
+        alert(`Image upload failed: ${errData.error || res.statusText}`);
       }
     } catch (err) {
       console.error(err);
@@ -95,8 +98,8 @@ const Products = () => {
     try {
       const token = localStorage.getItem('adminToken');
       const url = isEditing 
-        ? `https://api.bloomingsparrow.com/api/admin/products/${formData.id}`
-        : `https://api.bloomingsparrow.com/api/admin/products`;
+        ? `${API_URL}/api/admin/products/${formData.id}`
+        : `${API_URL}/api/admin/products`;
       
       const method = isEditing ? 'PUT' : 'POST';
 
@@ -125,7 +128,7 @@ const Products = () => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
         const token = localStorage.getItem('adminToken');
-        const res = await fetch(`https://api.bloomingsparrow.com/api/admin/products/${id}`, {
+        const res = await fetch(`${API_URL}/api/admin/products/${id}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -171,6 +174,7 @@ const Products = () => {
           <table className="min-w-full divide-y divide-slate-200">
             <thead className="bg-slate-50">
               <tr>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Product ID</th>
                 <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Product Name</th>
                 <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Category</th>
                 <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Price</th>
@@ -181,18 +185,21 @@ const Products = () => {
             <tbody className="bg-white divide-y divide-slate-100">
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-12 text-center text-sm text-slate-500">
+                  <td colSpan="6" className="px-6 py-12 text-center text-sm text-slate-500">
                     No products found.
                   </td>
                 </tr>
               ) : (
                 paginatedProducts.map((product) => (
                   <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-indigo-600">
+                      {product.id}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-10 w-10 flex-shrink-0 bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
                           {product.image ? (
-                            <img src={`https://api.bloomingsparrow.com/${product.image}`} alt={product.title} className="w-full h-full object-cover" />
+                            <img src={`${API_URL}/${product.image}`} alt={product.title} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full bg-indigo-50 flex items-center justify-center text-indigo-300 font-bold text-xs">IMG</div>
                           )}
@@ -308,7 +315,7 @@ const Products = () => {
                   </div>
                   {showImagePreview && formData.image && (
                     <div className="mt-3 h-32 w-32 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center animate-in fade-in zoom-in duration-200">
-                      <img src={`https://api.bloomingsparrow.com/${formData.image}`} alt="Preview" className="w-full h-full object-contain" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }} />
+                      <img src={`${API_URL}/${formData.image}`} alt="Preview" className="w-full h-full object-contain" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }} />
                       <div className="hidden text-xs text-slate-400">Not Found</div>
                     </div>
                   )}
