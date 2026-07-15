@@ -1,5 +1,6 @@
 import { useEffect, useState, Component } from 'react';
 import Pagination from '../components/Pagination';
+import Swal from 'sweetalert2';
 
 class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null, errorInfo: null }; }

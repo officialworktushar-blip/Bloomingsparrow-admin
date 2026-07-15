@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Pagination from '../components/Pagination';
 import { X, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
+import Swal from 'sweetalert2';
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -81,13 +82,20 @@ const Products = () => {
       if (res.ok) {
         const data = await res.json();
         setFormData(prev => ({ ...prev, image: data.imageUrl }));
+        Swal.fire({
+          icon: 'success',
+          title: 'Success',
+          text: 'Image uploaded successfully!',
+          timer: 1500,
+          showConfirmButton: false
+        });
       } else {
         const errData = await res.json();
-        alert(`Image upload failed: ${errData.error || res.statusText}`);
+        Swal.fire('Error', `Image upload failed: ${errData.error || res.statusText}`, 'error');
       }
     } catch (err) {
       console.error(err);
-      alert('Error uploading image');
+      Swal.fire('Error', 'Error uploading image', 'error');
     } finally {
       setUploadingImage(false);
     }
@@ -115,17 +123,34 @@ const Products = () => {
       if (res.ok) {
         setIsModalOpen(false);
         fetchProducts(); // Refresh the list
+        Swal.fire({
+          icon: 'success',
+          title: 'Success',
+          text: `Product ${isEditing ? 'updated' : 'added'} successfully!`,
+          timer: 1500,
+          showConfirmButton: false
+        });
       } else {
-        alert('Failed to save product');
+        Swal.fire('Error', 'Failed to save product', 'error');
       }
     } catch (err) {
       console.error(err);
-      alert('An error occurred');
+      Swal.fire('Error', 'An error occurred', 'error');
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#4f46e5',
+      cancelButtonColor: '#ef4444',
+      confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (result.isConfirmed) {
       try {
         const token = localStorage.getItem('adminToken');
         const res = await fetch(`${API_URL}/api/admin/products/${id}`, {
@@ -134,12 +159,19 @@ const Products = () => {
         });
         if (res.ok) {
           fetchProducts();
+          Swal.fire({
+            title: 'Deleted!',
+            text: 'Your product has been deleted.',
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false
+          });
         } else {
-          alert('Failed to delete product');
+          Swal.fire('Error', 'Failed to delete product', 'error');
         }
       } catch (err) {
         console.error(err);
-        alert('An error occurred while deleting');
+        Swal.fire('Error', 'An error occurred while deleting', 'error');
       }
     }
   };
