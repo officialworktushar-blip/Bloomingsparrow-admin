@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import Pagination from '../components/Pagination';
-import { X, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
+import { X, Pencil, Trash2, Upload } from 'lucide-react';
 import Swal from 'sweetalert2';
+
+const MAX_IMAGES = 4;
 
 const Products = () => {
   const [products, setProducts] = useState([]);
@@ -11,11 +13,10 @@ const Products = () => {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [uploadingIndex, setUploadingIndex] = useState(null);
   const [formData, setFormData] = useState({
     id: '', title: '', category: '', category_label: '', price: '', 
-    image: '', description: '', material: '', dimensions: '', origin: '', artisan: ''
+    images: [], description: '', material: '', dimensions: '', origin: '', artisan: '', order: 0
   });
 
   const API_URL = import.meta.env.VITE_API_URL || 'https://api.bloomingsparrow.com';
@@ -44,12 +45,16 @@ const Products = () => {
   const handleOpenModal = (product = null) => {
     if (product) {
       setIsEditing(true);
-      setFormData(product);
+      setFormData({
+        ...product,
+        images: Array.isArray(product.images) ? product.images : (product.image ? [product.image] : []),
+        order: product.order ?? 0
+      });
     } else {
       setIsEditing(false);
       setFormData({
         id: '', title: '', category: '', category_label: '', price: '', 
-        image: '', description: '', material: '', dimensions: '', origin: '', artisan: ''
+        images: [], description: '', material: '', dimensions: '', origin: '', artisan: '', order: 0
       });
     }
     setIsModalOpen(true);
@@ -63,11 +68,12 @@ const Products = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleImageUpload = async (e) => {
+  const handleImageUpload = async (index, e) => {
     const file = e.target.files[0];
     if (!file) return;
+    e.target.value = '';
     
-    setUploadingImage(true);
+    setUploadingIndex(index);
     const uploadData = new FormData();
     uploadData.append('image', file);
     
@@ -81,13 +87,10 @@ const Products = () => {
       
       if (res.ok) {
         const data = await res.json();
-        setFormData(prev => ({ ...prev, image: data.imageUrl }));
-        Swal.fire({
-          icon: 'success',
-          title: 'Success',
-          text: 'Image uploaded successfully!',
-          timer: 1500,
-          showConfirmButton: false
+        setFormData(prev => {
+          const newImages = [...(prev.images || [])];
+          newImages[index] = data.imageUrl;
+          return { ...prev, images: newImages };
         });
       } else {
         const errData = await res.json();
@@ -97,8 +100,18 @@ const Products = () => {
       console.error(err);
       Swal.fire('Error', 'Error uploading image', 'error');
     } finally {
-      setUploadingImage(false);
+      setUploadingIndex(null);
     }
+  };
+
+  const handleRemoveImage = (index) => {
+    setFormData(prev => {
+      const newImages = [...(prev.images || [])];
+      newImages.splice(index, 1);
+      while (newImages.length < MAX_IMAGES) newImages.push(null);
+      const cleaned = newImages.filter(Boolean);
+      return { ...prev, images: cleaned.length > 0 ? cleaned : [] };
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -111,13 +124,18 @@ const Products = () => {
       
       const method = isEditing ? 'PUT' : 'POST';
 
+      const payload = {
+        ...formData,
+        images: formData.images.filter(Boolean)
+      };
+
       const res = await fetch(url, {
         method,
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` 
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
 
       if (res.ok) {
@@ -210,6 +228,7 @@ const Products = () => {
                 <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Product Name</th>
                 <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Category</th>
                 <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Price</th>
+                <th scope="col" className="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-wider">Order</th>
                 <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                 <th scope="col" className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -217,21 +236,21 @@ const Products = () => {
             <tbody className="bg-white divide-y divide-slate-100">
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-sm text-slate-500">
+                  <td colSpan="7" className="px-6 py-12 text-center text-sm text-slate-500">
                     No products found.
                   </td>
                 </tr>
               ) : (
                 paginatedProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
+                    <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-indigo-600">
                       {product.id}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-10 w-10 flex-shrink-0 bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                          {product.image ? (
-                            <img src={`${API_URL}/${product.image}`} alt={product.title} className="w-full h-full object-cover" />
+                          {(product.images?.[0] || product.image) ? (
+                            <img src={`${API_URL}/${product.images?.[0] || product.image}`} alt={product.title} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full bg-indigo-50 flex items-center justify-center text-indigo-300 font-bold text-xs">IMG</div>
                           )}
@@ -247,6 +266,9 @@ const Products = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-900">
                       {product.price}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-mono text-slate-600">
+                      {product.order ?? '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
@@ -321,36 +343,57 @@ const Products = () => {
                   <input required name="price" value={formData.price} onChange={handleChange} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="e.g. ₹4,500" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-700">Image Path & Preview</label>
-                  <div className="flex space-x-2">
-                    <input 
-                      type="file" 
-                      accept="image/*"
-                      onChange={handleImageUpload} 
-                      className="hidden" 
-                      id="image-upload" 
-                    />
-                    <label htmlFor="image-upload" className="cursor-pointer px-4 py-2 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors shrink-0 flex items-center justify-center">
-                      {uploadingImage ? 'Uploading...' : 'Upload Image'}
-                    </label>
-                    <input readOnly name="image" value={formData.image} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none bg-slate-50 text-slate-500 cursor-not-allowed text-sm" placeholder="images/product.png" />
-                    {formData.image && (
-                      <button 
-                        type="button"
-                        onClick={() => setShowImagePreview(!showImagePreview)}
-                        className="px-3 py-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors shrink-0 flex items-center justify-center"
-                        title="Toggle Image Preview"
-                      >
-                        {showImagePreview ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    )}
+                  <label className="text-sm font-medium text-slate-700">Images (max {MAX_IMAGES})</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {Array.from({ length: MAX_IMAGES }).map((_, i) => {
+                      const imgUrl = formData.images?.[i];
+                      return (
+                        <div key={i} className="relative aspect-square rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden group">
+                          {imgUrl ? (
+                            <>
+                              <img
+                                src={`${API_URL}/${imgUrl}`}
+                                alt={`Product image ${i + 1}`}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'flex'; }}
+                              />
+                              <div className="hidden absolute inset-0 items-center justify-center text-xs text-slate-400 bg-slate-50">Not Found</div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveImage(i)}
+                                className="absolute top-1 right-1 p-1 bg-white/80 rounded-full text-slate-500 hover:bg-red-50 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Remove image"
+                              >
+                                <X size={14} />
+                              </button>
+                            </>
+                          ) : (
+                            <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50/50 transition-colors">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleImageUpload(i, e)}
+                                className="hidden"
+                              />
+                              {uploadingIndex === i ? (
+                                <span className="text-xs animate-pulse text-indigo-500">Uploading...</span>
+                              ) : (
+                                <>
+                                  <Upload size={18} />
+                                  <span className="text-[10px] font-medium">Slot {i + 1}</span>
+                                </>
+                              )}
+                            </label>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  {showImagePreview && formData.image && (
-                    <div className="mt-3 h-32 w-32 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center animate-in fade-in zoom-in duration-200">
-                      <img src={`${API_URL}/${formData.image}`} alt="Preview" className="w-full h-full object-contain" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='block'; }} />
-                      <div className="hidden text-xs text-slate-400">Not Found</div>
-                    </div>
-                  )}
+                  <p className="text-xs text-slate-400">Click a slot to upload. First image is the thumbnail.</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-slate-700">Display Order</label>
+                  <input type="number" min="0" name="order" value={formData.order} onChange={handleChange} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="0" />
                 </div>
               </div>
 
