@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Pagination from '../components/Pagination';
 import { X, Pencil, Trash2, Upload } from 'lucide-react';
 import Swal from 'sweetalert2';
@@ -13,11 +13,14 @@ const Products = () => {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [uploadingIndex, setUploadingIndex] = useState(null);
+  const [uploadingSlots, setUploadingSlots] = useState(new Set());
   const [formData, setFormData] = useState({
     id: '', title: '', category: '', category_label: '', price: '', 
     images: [], description: '', material: '', dimensions: '', origin: '', artisan: '', order: 0
   });
+
+  const imagesRef = useRef([]);
+  const pendingUploads = useRef(new Set());
 
   const API_URL = import.meta.env.VITE_API_URL || 'https://api.bloomingsparrow.com';
 
@@ -29,6 +32,8 @@ const Products = () => {
       });
       if (res.ok) {
         const data = await res.json();
+        console.log('[FETCH] server returned products. Image counts:',
+          JSON.stringify((Array.isArray(data) ? data.map(p => ({ id: p.id, imagesCount: (p.images || []).length, image: p.image || null, images: p.images })) : data)));
         setProducts(data);
       }
     } catch (err) {
@@ -45,13 +50,16 @@ const Products = () => {
   const handleOpenModal = (product = null) => {
     if (product) {
       setIsEditing(true);
+      const existingImages = Array.isArray(product.images) ? product.images : (product.image ? [product.image] : []);
+      imagesRef.current = existingImages;
       setFormData({
         ...product,
-        images: Array.isArray(product.images) ? product.images : (product.image ? [product.image] : []),
+        images: existingImages,
         order: product.order ?? 0
       });
     } else {
       setIsEditing(false);
+      imagesRef.current = [];
       setFormData({
         id: '', title: '', category: '', category_label: '', price: '', 
         images: [], description: '', material: '', dimensions: '', origin: '', artisan: '', order: 0
@@ -65,58 +73,72 @@ const Products = () => {
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleImageUpload = async (index, e) => {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = '';
-    
-    setUploadingIndex(index);
-    const uploadData = new FormData();
-    uploadData.append('image', file);
-    
-    try {
-      const token = localStorage.getItem('adminToken');
-      const res = await fetch(`${API_URL}/api/admin/upload`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: uploadData
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setFormData(prev => {
-          const newImages = [...(prev.images || [])];
-          newImages[index] = data.imageUrl;
-          return { ...prev, images: newImages };
+
+    const uploadPromise = (async () => {
+      setUploadingSlots(prev => new Set(prev).add(index));
+      const uploadData = new FormData();
+      uploadData.append('image', file);
+
+      try {
+        const token = localStorage.getItem('adminToken');
+        const res = await fetch(`${API_URL}/api/admin/upload`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: uploadData
         });
-      } else {
-        const errData = await res.json();
-        Swal.fire('Error', `Image upload failed: ${errData.error || res.statusText}`, 'error');
+
+        if (res.ok) {
+          const data = await res.json();
+          console.log('[UPLOAD] slot', index, '→ imageUrl:', data.imageUrl);
+          const newImages = [...(imagesRef.current || [])];
+          newImages[index] = data.imageUrl;
+          imagesRef.current = newImages;
+          console.log('[UPLOAD] images array after update:', JSON.stringify(newImages));
+          setFormData(prev => ({ ...prev, images: newImages }));
+        } else {
+          const errData = await res.json();
+          Swal.fire('Error', `Image upload failed: ${errData.error || res.statusText}`, 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        Swal.fire('Error', 'Error uploading image', 'error');
+      } finally {
+        setUploadingSlots(prev => {
+          const next = new Set(prev);
+          next.delete(index);
+          return next;
+        });
       }
-    } catch (err) {
-      console.error(err);
-      Swal.fire('Error', 'Error uploading image', 'error');
-    } finally {
-      setUploadingIndex(null);
-    }
+    })();
+
+    pendingUploads.current.add(uploadPromise);
+    uploadPromise.finally(() => {
+      pendingUploads.current.delete(uploadPromise);
+    });
   };
 
   const handleRemoveImage = (index) => {
-    setFormData(prev => {
-      const newImages = [...(prev.images || [])];
-      newImages.splice(index, 1);
-      while (newImages.length < MAX_IMAGES) newImages.push(null);
-      const cleaned = newImages.filter(Boolean);
-      return { ...prev, images: cleaned.length > 0 ? cleaned : [] };
-    });
+    const newImages = [...(imagesRef.current || [])];
+    newImages.splice(index, 1);
+    imagesRef.current = newImages;
+    setFormData(prev => ({ ...prev, images: newImages }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      if (pendingUploads.current.size > 0) {
+        console.log('[SAVE] waiting for', pendingUploads.current.size, 'pending image upload(s) to finish...');
+        await Promise.allSettled([...pendingUploads.current]);
+      }
+
       const token = localStorage.getItem('adminToken');
       const url = isEditing 
         ? `${API_URL}/api/admin/products/${formData.id}`
@@ -124,10 +146,16 @@ const Products = () => {
       
       const method = isEditing ? 'PUT' : 'POST';
 
+      const latestImages = imagesRef.current;
+      console.log('[SAVE] formData.images BEFORE save (raw, length=' + latestImages.length + '):', JSON.stringify(latestImages));
+
       const payload = {
         ...formData,
-        images: formData.images.filter(Boolean)
+        images: latestImages.filter(Boolean)
       };
+
+      console.log('[SAVE] payload.images AFTER filter(Boolean) (length=' + payload.images.length + '):', JSON.stringify(payload.images));
+      console.log('[SAVE] full payload sent to', method, url, ':', JSON.stringify(payload));
 
       const res = await fetch(url, {
         method,
@@ -137,6 +165,20 @@ const Products = () => {
         },
         body: JSON.stringify(payload)
       });
+
+      console.log('[SAVE] response status:', res.status, res.statusText);
+      let saveResponse = null;
+      try {
+        saveResponse = await res.json();
+        console.log('[SAVE] full server response:', JSON.stringify(saveResponse));
+        if (saveResponse && saveResponse.product) {
+          console.log('[SAVE] server product.images:', JSON.stringify(saveResponse.product.images || saveResponse.product.image));
+        } else if (saveResponse && saveResponse.data) {
+          console.log('[SAVE] server data:', JSON.stringify(saveResponse.data));
+        }
+      } catch {
+        console.log('[SAVE] response was NOT JSON — no body echoed');
+      }
 
       if (res.ok) {
         setIsModalOpen(false);
@@ -375,7 +417,7 @@ const Products = () => {
                                 onChange={(e) => handleImageUpload(i, e)}
                                 className="hidden"
                               />
-                              {uploadingIndex === i ? (
+                              {uploadingSlots.has(i) ? (
                                 <span className="text-xs animate-pulse text-indigo-500">Uploading...</span>
                               ) : (
                                 <>
@@ -425,8 +467,8 @@ const Products = () => {
                 <button type="button" onClick={handleCloseModal} className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
                   Cancel
                 </button>
-                <button type="submit" className="px-6 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors">
-                  {isEditing ? 'Save Changes' : 'Create Product'}
+                <button type="submit" disabled={uploadingSlots.size > 0} className="px-6 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  {uploadingSlots.size > 0 ? 'Uploading...' : (isEditing ? 'Save Changes' : 'Create Product')}
                 </button>
               </div>
             </form>
